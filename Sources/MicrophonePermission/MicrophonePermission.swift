@@ -23,7 +23,7 @@
 import PermissionsKit
 #endif
 
-#if os(iOS) && PERMISSIONSKIT_MICROPHONE
+#if (os(iOS) || os(macOS)) && PERMISSIONSKIT_MICROPHONE
 import Foundation
 import AVFoundation
 
@@ -40,21 +40,39 @@ public class MicrophonePermission: Permission {
     open var usageDescriptionKey: String? { "NSMicrophoneUsageDescription" }
     
     public override var status: Permission.Status {
+        #if os(iOS)
         switch  AVAudioSession.sharedInstance().recordPermission {
         case .granted: return .authorized
         case .denied: return .denied
         case .undetermined: return .notDetermined
         @unknown default: return .denied
         }
+        #elseif os(macOS)
+        switch AVCaptureDevice.authorizationStatus(for: .audio) {
+            case .denied: return .denied
+            case .notDetermined: return .notDetermined
+            case .restricted: return .denied
+            case .authorized: return .authorized
+            @unknown default: return .denied
+        }
+        #endif
     }
     
     public override func request(completion: @escaping () -> Void) {
+        #if os(iOS)
         AVAudioSession.sharedInstance().requestRecordPermission {
             granted in
             DispatchQueue.main.async {
                 completion()
             }
         }
+        #elseif os(macOS)
+        AVCaptureDevice.requestAccess(for: .audio) { _ in
+            DispatchQueue.main.async {
+                completion()
+            }
+        }
+        #endif
     }
 }
 #endif
